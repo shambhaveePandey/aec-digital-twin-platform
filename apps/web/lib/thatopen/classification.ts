@@ -7,7 +7,8 @@ export async function classifyByStorey(
   model: FragmentsGroup,
 ): Promise<void> {
   const classifier = components.get(OBC.Classifier);
-  await classifier.byStorey(model);
+  // v2.x uses bySpatialStructure instead of byStorey
+  await classifier.bySpatialStructure(model);
 }
 
 export async function classifyByEntity(
@@ -24,41 +25,34 @@ export async function getModelTree(
 ): Promise<ClassificationNode[]> {
   const classifier = components.get(OBC.Classifier);
 
-  // Classify by both axes so the tree has storey + entity groupings
   await classifyByStorey(components, model);
   await classifyByEntity(components, model);
 
-  const rawTree = await classifier.getClassificationTree(model);
+  // Build a ClassificationNode tree from classifier.list
+  // list: Record<systemName, Record<value, FragmentIdMap>>
+  const list = classifier.list as Record<string, Record<string, unknown>>;
 
-  // Normalise to our ClassificationNode shape
-  function normalise(node: Record<string, unknown>): ClassificationNode {
-    return {
-      name: String(node.name ?? "Unknown"),
-      id: node.id !== undefined ? String(node.id) : undefined,
-      children: Array.isArray(node.children)
-        ? (node.children as Record<string, unknown>[]).map(normalise)
-        : undefined,
-    };
-  }
-
-  return Array.isArray(rawTree)
-    ? (rawTree as Record<string, unknown>[]).map(normalise)
-    : [];
+  return Object.entries(list).map(([systemName, values]) => ({
+    name: systemName,
+    children: Object.keys(values).map((value) => ({ name: value })),
+  }));
 }
 
 export function isolateClassification(
   components: OBC.Components,
-  world: OBC.World,
+  _world: OBC.World,
   classificationName: string,
   value: string,
 ): void {
   const hider = components.get(OBC.Hider);
   const classifier = components.get(OBC.Classifier);
   const found = classifier.find({ [classificationName]: [value] });
-  hider.isolate(world, found);
+  // v2.x Hider.isolate takes only the FragmentIdMap (no world parameter)
+  hider.isolate(found);
 }
 
-export function showAll(components: OBC.Components, world: OBC.World): void {
+export function showAll(components: OBC.Components, _world: OBC.World): void {
   const hider = components.get(OBC.Hider);
-  hider.reset(world);
+  // v2.x Hider.set(visible, items?) — omitting items affects all fragments
+  hider.set(true);
 }

@@ -30,9 +30,9 @@ export function deleteActiveClippingPlane(
 
 export function deleteAllClippingPlanes(
   components: OBC.Components,
-  world: OBC.World,
+  _world: OBC.World,
 ): void {
-  components.get(OBC.Clipper).deleteAll(world);
+  components.get(OBC.Clipper).deleteAll();
 }
 
 export function toggleClipping(

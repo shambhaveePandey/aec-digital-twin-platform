@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth/config";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {
-  const isLoggedIn = !!req.auth;
+  const isLoggedIn = !!req.auth?.user;
   const { pathname } = req.nextUrl;
 
   const protectedPrefixes = ["/dashboard", "/twins"];

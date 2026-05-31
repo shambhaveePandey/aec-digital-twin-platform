@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const modelVersion = await createModelVersion({
     twinId,
     ifcFileName: filename,
-    ifcFileSizeBytes: BigInt(sizeBytes),
+    ifcFileSizeBytes: sizeBytes,
   });
 
   const s3Key = ifcSourceKey(twinId, modelVersion.id, filename);
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     fileType: "IFC_SOURCE",
     name: filename,
     s3Key,
-    sizeBytes: BigInt(sizeBytes),
+    sizeBytes: sizeBytes,
     mimeType: contentType,
     uploadedById: userId,
   });

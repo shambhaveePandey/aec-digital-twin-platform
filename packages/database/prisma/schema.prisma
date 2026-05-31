@@ -1,13 +1,14 @@
 // Learn more: https://pris.ly/d/prisma-schema
+// NOTE: SQLite fallback — enums replaced with String, Json replaced with String (serialised JSON).
+// Revert to postgresql provider when Docker/Postgres is available.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  //directUrl = env("DIRECT_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // ─── Auth (NextAuth.js Prisma Adapter) ───────────────────────────────────────
@@ -19,12 +20,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -74,8 +75,6 @@ model User {
 }
 
 // ─── Workspace ────────────────────────────────────────────────────────────────
-// A workspace is the top-level multi-tenant boundary.
-// Each user can belong to many workspaces via WorkspaceMember.
 
 model Workspace {
   id          String   @id @default(cuid())
@@ -93,19 +92,13 @@ model Workspace {
   @@map("workspaces")
 }
 
-enum WorkspaceRole {
-  OWNER
-  ADMIN
-  MEMBER
-  VIEWER
-}
-
+// WorkspaceRole values: OWNER | ADMIN | MEMBER | VIEWER
 model WorkspaceMember {
-  id          String        @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
   userId      String
-  role        WorkspaceRole @default(MEMBER)
-  invitedAt   DateTime      @default(now())
+  role        String    @default("MEMBER")
+  invitedAt   DateTime  @default(now())
   acceptedAt  DateTime?
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -118,25 +111,19 @@ model WorkspaceMember {
 }
 
 // ─── Digital Twin ─────────────────────────────────────────────────────────────
-// A DigitalTwin belongs to exactly one Workspace and can hold many model versions.
 
-enum TwinStatus {
-  DRAFT
-  ACTIVE
-  ARCHIVED
-}
-
+// TwinStatus values: DRAFT | ACTIVE | ARCHIVED
 model DigitalTwin {
-  id          String     @id @default(cuid())
+  id          String   @id @default(cuid())
   workspaceId String
   name        String
   description String?
   address     String?
   latitude    Float?
   longitude   Float?
-  status      TwinStatus @default(DRAFT)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  status      String   @default("DRAFT")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   modelVersions TwinModelVersion[]
@@ -153,36 +140,25 @@ model DigitalTwin {
 }
 
 // ─── Model Versions ───────────────────────────────────────────────────────────
-// Each upload creates a new version. The worker converts IFC → Fragments once;
-// subsequent viewer loads read the .frag artifact directly from S3.
 
-enum ModelVersionStatus {
-  PENDING
-  PROCESSING
-  READY
-  FAILED
-}
-
+// ModelVersionStatus values: PENDING | PROCESSING | READY | FAILED
 model TwinModelVersion {
-  id                String             @id @default(cuid())
+  id                String    @id @default(cuid())
   twinId            String
   version           Int
   label             String?
-  status            ModelVersionStatus @default(PENDING)
-  // IFC source (set at upload time)
+  status            String    @default("PENDING")
   ifcFileKey        String?
   ifcFileName       String?
-  ifcFileSizeBytes  BigInt?
-  // Fragments output (set after conversion)
+  ifcFileSizeBytes  Int?
   fragFileKey       String?
-  fragFileSizeBytes BigInt?
-  // Stats populated by the worker
+  fragFileSizeBytes Int?
   elementCount      Int?
   ifcSchema         String?
-  boundingBox       Json?
+  boundingBox       String?
   processedAt       DateTime?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   twin          DigitalTwin            @relation(fields: [twinId], references: [id], onDelete: Cascade)
   propertyCache ElementPropertyCache[]
@@ -195,26 +171,18 @@ model TwinModelVersion {
 }
 
 // ─── Twin Files ───────────────────────────────────────────────────────────────
-// Generic file attachment record. The binary lives in S3; this row is metadata.
 
-enum TwinFileType {
-  IFC_SOURCE
-  FRAGMENT
-  PREVIEW_IMAGE
-  DOCUMENT
-  OTHER
-}
-
+// TwinFileType values: IFC_SOURCE | FRAGMENT | PREVIEW_IMAGE | DOCUMENT | OTHER
 model TwinFile {
-  id           String       @id @default(cuid())
+  id           String    @id @default(cuid())
   twinId       String
-  fileType     TwinFileType
+  fileType     String
   name         String
-  s3Key        String       @unique
-  sizeBytes    BigInt
+  s3Key        String    @unique
+  sizeBytes    Int
   mimeType     String?
   checksum     String?
-  uploadedAt   DateTime     @default(now())
+  uploadedAt   DateTime  @default(now())
   uploadedById String?
 
   twin DigitalTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
@@ -225,20 +193,19 @@ model TwinFile {
 }
 
 // ─── Element Property Cache ───────────────────────────────────────────────────
-// Extracted from the IFC by the worker and stored for fast viewer property queries.
-// propertySets: { "Pset_WallCommon": { "FireRating": "60", ... }, ... }
+// propertySets / classifications stored as serialised JSON strings.
 
 model ElementPropertyCache {
-  id              String   @id @default(cuid())
-  modelVersionId  String
-  ifcGuid         String
-  expressId       Int
-  ifcClass        String
-  name            String?
-  propertySets    Json
-  classifications Json?
-  spatialPath     String?
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  modelVersionId String
+  ifcGuid        String
+  expressId      Int
+  ifcClass       String
+  name           String?
+  propertySets   String
+  classifications String?
+  spatialPath    String?
+  createdAt      DateTime @default(now())
 
   modelVersion TwinModelVersion @relation(fields: [modelVersionId], references: [id], onDelete: Cascade)
 
@@ -250,18 +217,10 @@ model ElementPropertyCache {
 }
 
 // ─── Sensors ──────────────────────────────────────────────────────────────────
-// A Sensor optionally binds to an IFC element via ifcGuid or expressId.
-// Readings stream in from the sensor-bridge service via MQTT.
 
-enum SensorStatus {
-  ACTIVE
-  INACTIVE
-  STALE
-  ERROR
-}
-
+// SensorStatus values: ACTIVE | INACTIVE | STALE | ERROR
 model Sensor {
-  id           String       @id @default(cuid())
+  id           String    @id @default(cuid())
   twinId       String
   name         String
   description  String?
@@ -272,11 +231,11 @@ model Sensor {
   externalId   String?
   thresholdMin Float?
   thresholdMax Float?
-  status       SensorStatus @default(ACTIVE)
+  status       String    @default("ACTIVE")
   lastSeenAt   DateTime?
   lastValue    Float?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   twin     DigitalTwin     @relation(fields: [twinId], references: [id], onDelete: Cascade)
   readings SensorReading[]
@@ -287,7 +246,6 @@ model Sensor {
   @@map("sensors")
 }
 
-// High-write table — consider a retention policy or TimescaleDB hypertable in production.
 model SensorReading {
   id        String   @id @default(cuid())
   sensorId  String
@@ -303,39 +261,25 @@ model SensorReading {
 }
 
 // ─── Issues (BCF-compatible) ──────────────────────────────────────────────────
-// Issues link to model elements via ifcGuid and to viewpoints for spatial context.
 
-enum IssueStatus {
-  OPEN
-  IN_PROGRESS
-  RESOLVED
-  CLOSED
-  WONT_FIX
-}
-
-enum IssuePriority {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
+// IssueStatus values: OPEN | IN_PROGRESS | RESOLVED | CLOSED | WONT_FIX
+// IssuePriority values: LOW | MEDIUM | HIGH | CRITICAL
 model Issue {
-  id           String        @id @default(cuid())
+  id           String    @id @default(cuid())
   twinId       String
   title        String
-  description  String?       @db.Text
-  status       IssueStatus   @default(OPEN)
-  priority     IssuePriority @default(MEDIUM)
+  description  String?
+  status       String    @default("OPEN")
+  priority     String    @default("MEDIUM")
   assigneeId   String?
   reportedById String?
   ifcGuid      String?
   expressId    Int?
-  bcfGuid      String?       @unique
+  bcfGuid      String?   @unique
   dueDate      DateTime?
   closedAt     DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   twin       DigitalTwin    @relation(fields: [twinId], references: [id], onDelete: Cascade)
   comments   IssueComment[]
@@ -351,7 +295,7 @@ model IssueComment {
   id        String   @id @default(cuid())
   issueId   String
   authorId  String?
-  body      String   @db.Text
+  body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -362,21 +306,20 @@ model IssueComment {
 }
 
 // ─── Viewpoints ───────────────────────────────────────────────────────────────
-// Stores a camera snapshot plus hidden/selected element GUIDs for restoring context.
-// hiddenGuids / selectedGuids are string[] serialised to JSON.
+// Camera fields and guid arrays stored as serialised JSON strings.
 
 model Viewpoint {
   id               String   @id @default(cuid())
   twinId           String
   issueId          String?
   label            String?
-  cameraPosition   Json
-  cameraTarget     Json
-  cameraUp         Json
+  cameraPosition   String
+  cameraTarget     String
+  cameraUp         String
   isOrthographic   Boolean  @default(false)
   orthographicSize Float?
-  hiddenGuids      Json?
-  selectedGuids    Json?
+  hiddenGuids      String?
+  selectedGuids    String?
   bcfGuid          String?  @unique
   snapshotKey      String?
   createdAt        DateTime @default(now())
@@ -391,29 +334,19 @@ model Viewpoint {
 
 // ─── Audit Log ────────────────────────────────────────────────────────────────
 
-enum AuditAction {
-  CREATE
-  UPDATE
-  DELETE
-  UPLOAD
-  CONVERT
-  SHARE
-  LOGIN
-  LOGOUT
-}
-
+// AuditAction values: CREATE | UPDATE | DELETE | UPLOAD | CONVERT | SHARE | LOGIN | LOGOUT
 model AuditEvent {
-  id          String      @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String?
   twinId      String?
   userId      String?
-  action      AuditAction
+  action      String
   resource    String
   resourceId  String?
-  metadata    Json?
+  metadata    String?
   ipAddress   String?
   userAgent   String?
-  createdAt   DateTime    @default(now())
+  createdAt   DateTime  @default(now())
 
   workspace Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   twin      DigitalTwin? @relation(fields: [twinId], references: [id], onDelete: SetNull)
@@ -427,33 +360,18 @@ model AuditEvent {
 }
 
 // ─── Background Jobs ──────────────────────────────────────────────────────────
-// Lightweight fallback job table. Primary queue is BullMQ/Redis.
-// The ifc-worker polls this table when Redis is unavailable.
 
-enum JobType {
-  IFC_CONVERT
-  PROPERTY_EXTRACT
-  PREVIEW_GENERATE
-  FRAGMENT_UPLOAD
-}
-
-enum JobStatus {
-  QUEUED
-  RUNNING
-  DONE
-  FAILED
-  CANCELLED
-}
-
+// JobType values: IFC_CONVERT | PROPERTY_EXTRACT | PREVIEW_GENERATE | FRAGMENT_UPLOAD
+// JobStatus values: QUEUED | RUNNING | DONE | FAILED | CANCELLED
 model BackgroundJob {
   id             String    @id @default(cuid())
   twinId         String?
   modelVersionId String?
-  type           JobType
-  status         JobStatus @default(QUEUED)
+  type           String
+  status         String    @default("QUEUED")
   priority       Int       @default(0)
-  payload        Json?
-  result         Json?
+  payload        String?
+  result         String?
   errorMessage   String?
   attempts       Int       @default(0)
   maxAttempts    Int       @default(3)

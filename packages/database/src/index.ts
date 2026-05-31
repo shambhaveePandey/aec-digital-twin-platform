@@ -2,8 +2,8 @@
 export { prisma } from "./client";
 export type { PrismaClient } from "./client";
 
-// Prisma-generated enums
-export {
+// Enum types (string unions for SQLite compat — replace with @prisma/client exports for Postgres)
+export type {
   WorkspaceRole,
   TwinStatus,
   ModelVersionStatus,
@@ -14,7 +14,7 @@ export {
   AuditAction,
   JobType,
   JobStatus,
-} from "@prisma/client";
+} from "./enums";
 
 // Prisma-generated model types
 export type {

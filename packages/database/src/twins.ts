@@ -1,4 +1,5 @@
-import type { DigitalTwin, Prisma, TwinStatus } from "@prisma/client";
+import type { DigitalTwin, Prisma } from "@prisma/client";
+import type { TwinStatus } from "./enums";
 import { prisma } from "./client";
 
 export type CreateTwinInput = {
@@ -54,8 +55,8 @@ export async function listTwins(workspaceId: string, options: ListTwinsOptions =
     ...(search
       ? {
           OR: [
-            { name: { contains: search, mode: "insensitive" } },
-            { description: { contains: search, mode: "insensitive" } },
+            { name: { contains: search } },
+            { description: { contains: search } },
           ],
         }
       : {}),

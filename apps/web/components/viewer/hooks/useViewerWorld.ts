@@ -26,7 +26,7 @@ export function useViewerWorld(containerRef: RefObject<HTMLDivElement>) {
           "@/lib/thatopen/init-fragments"
         );
 
-        const handles = await createWorld(container);
+        const handles = await createWorld(container as HTMLElement);
         if (cancelled) {
           const { disposeWorld } = await import("@/lib/thatopen/create-world");
           disposeWorld(handles);

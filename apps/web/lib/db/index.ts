@@ -75,6 +75,7 @@ export {
   markJobFailed,
   cancelJob,
   getJobsForTwin,
+  getJobCountByStatus,
 } from "@aec-twin/database";
 
 export type {

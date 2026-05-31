@@ -1,4 +1,5 @@
-import type { Workspace, WorkspaceMember, WorkspaceRole } from "@prisma/client";
+import type { Workspace, WorkspaceMember } from "@prisma/client";
+import type { WorkspaceRole } from "./enums";
 import { prisma } from "./client";
 
 export async function getWorkspaceById(id: string): Promise<Workspace | null> {

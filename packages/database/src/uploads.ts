@@ -1,4 +1,5 @@
-import type { TwinFile, TwinFileType, TwinModelVersion } from "@prisma/client";
+import type { TwinFile, TwinModelVersion } from "@prisma/client";
+import type { TwinFileType } from "./enums";
 import { prisma } from "./client";
 
 // ─── Model Versions ───────────────────────────────────────────────────────────
@@ -9,7 +10,7 @@ export type CreateModelVersionInput = {
   label?: string;
   ifcFileKey?: string;
   ifcFileName?: string;
-  ifcFileSizeBytes?: bigint;
+  ifcFileSizeBytes?: number;
 };
 
 /**
@@ -79,7 +80,7 @@ export async function updateModelVersion(
 export async function markModelVersionReady(
   id: string,
   fragFileKey: string,
-  fragFileSizeBytes: bigint,
+  fragFileSizeBytes: number,
   elementCount: number,
 ): Promise<TwinModelVersion> {
   return prisma.twinModelVersion.update({
@@ -108,7 +109,7 @@ export type CreateTwinFileInput = {
   fileType: TwinFileType;
   name: string;
   s3Key: string;
-  sizeBytes: bigint;
+  sizeBytes: number;
   mimeType?: string;
   checksum?: string;
   uploadedById?: string;
@@ -152,11 +153,15 @@ export type UpsertPropertyCacheInput = {
 };
 
 export async function upsertPropertyCache(data: UpsertPropertyCacheInput) {
-  const { modelVersionId, ifcGuid, ...rest } = data;
+  const { modelVersionId, ifcGuid, propertySets, classifications, ...rest } = data;
+  const serialised = {
+    propertySets: JSON.stringify(propertySets),
+    ...(classifications != null ? { classifications: JSON.stringify(classifications) } : {}),
+  };
   return prisma.elementPropertyCache.upsert({
     where: { modelVersionId_ifcGuid: { modelVersionId, ifcGuid } },
-    create: { modelVersionId, ifcGuid, ...rest },
-    update: rest,
+    create: { modelVersionId, ifcGuid, ...rest, ...serialised },
+    update: { ...rest, ...serialised },
   });
 }
 
@@ -184,13 +189,19 @@ export async function bulkUpsertPropertyCache(
   for (let i = 0; i < items.length; i += chunkSize) {
     const chunk = items.slice(i, i + chunkSize);
     await prisma.$transaction(
-      chunk.map(({ modelVersionId, ifcGuid, ...rest }) =>
-        prisma.elementPropertyCache.upsert({
+      chunk.map(({ modelVersionId, ifcGuid, propertySets, classifications, ...rest }) => {
+        const serialised = {
+          propertySets: JSON.stringify(propertySets),
+          ...(classifications != null
+            ? { classifications: JSON.stringify(classifications) }
+            : {}),
+        };
+        return prisma.elementPropertyCache.upsert({
           where: { modelVersionId_ifcGuid: { modelVersionId, ifcGuid } },
-          create: { modelVersionId, ifcGuid, ...rest },
-          update: rest,
-        }),
-      ),
+          create: { modelVersionId, ifcGuid, ...rest, ...serialised },
+          update: { ...rest, ...serialised },
+        });
+      }),
     );
   }
 }

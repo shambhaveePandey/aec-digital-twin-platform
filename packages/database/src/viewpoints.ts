@@ -18,7 +18,18 @@ export type CreateViewpointInput = {
 };
 
 export async function createViewpoint(data: CreateViewpointInput): Promise<Viewpoint> {
-  return prisma.viewpoint.create({ data });
+  const { cameraPosition, cameraTarget, cameraUp, hiddenGuids, selectedGuids, ...rest } =
+    data;
+  return prisma.viewpoint.create({
+    data: {
+      ...rest,
+      cameraPosition: JSON.stringify(cameraPosition),
+      cameraTarget: JSON.stringify(cameraTarget),
+      cameraUp: JSON.stringify(cameraUp),
+      ...(hiddenGuids != null ? { hiddenGuids: JSON.stringify(hiddenGuids) } : {}),
+      ...(selectedGuids != null ? { selectedGuids: JSON.stringify(selectedGuids) } : {}),
+    },
+  });
 }
 
 export async function getViewpointById(id: string): Promise<Viewpoint | null> {
@@ -40,15 +51,30 @@ export async function getIssueViewpoints(issueId: string): Promise<Viewpoint[]> 
   });
 }
 
-export type UpdateViewpointInput = Partial<
-  Pick<Viewpoint, "label" | "snapshotKey" | "hiddenGuids" | "selectedGuids">
->;
+export type UpdateViewpointInput = {
+  label?: string | null;
+  snapshotKey?: string | null;
+  hiddenGuids?: string[] | null;
+  selectedGuids?: string[] | null;
+};
 
 export async function updateViewpoint(
   id: string,
   data: UpdateViewpointInput,
 ): Promise<Viewpoint> {
-  return prisma.viewpoint.update({ where: { id }, data });
+  const { hiddenGuids, selectedGuids, ...rest } = data;
+  return prisma.viewpoint.update({
+    where: { id },
+    data: {
+      ...rest,
+      ...(hiddenGuids !== undefined
+        ? { hiddenGuids: hiddenGuids != null ? JSON.stringify(hiddenGuids) : null }
+        : {}),
+      ...(selectedGuids !== undefined
+        ? { selectedGuids: selectedGuids != null ? JSON.stringify(selectedGuids) : null }
+        : {}),
+    },
+  });
 }
 
 export async function deleteViewpoint(id: string): Promise<void> {

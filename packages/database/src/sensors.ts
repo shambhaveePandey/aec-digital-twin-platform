@@ -1,4 +1,5 @@
-import type { Sensor, SensorReading, SensorStatus } from "@prisma/client";
+import type { Sensor, SensorReading } from "@prisma/client";
+import type { SensorStatus } from "./enums";
 import { prisma } from "./client";
 
 // ─── Sensors ──────────────────────────────────────────────────────────────────

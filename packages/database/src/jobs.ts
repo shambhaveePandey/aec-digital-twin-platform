@@ -1,4 +1,5 @@
-import type { BackgroundJob, JobStatus, JobType } from "@prisma/client";
+import type { BackgroundJob } from "@prisma/client";
+import type { JobStatus, JobType } from "./enums";
 import { prisma } from "./client";
 
 export type CreateJobInput = {
@@ -12,7 +13,13 @@ export type CreateJobInput = {
 };
 
 export async function createJob(data: CreateJobInput): Promise<BackgroundJob> {
-  return prisma.backgroundJob.create({ data });
+  const { payload, ...rest } = data;
+  return prisma.backgroundJob.create({
+    data: {
+      ...rest,
+      ...(payload != null ? { payload: JSON.stringify(payload) } : {}),
+    },
+  });
 }
 
 export async function getJobById(id: string): Promise<BackgroundJob | null> {
@@ -58,7 +65,11 @@ export async function markJobDone(
 ): Promise<BackgroundJob> {
   return prisma.backgroundJob.update({
     where: { id },
-    data: { status: "DONE", completedAt: new Date(), result: result ?? undefined },
+    data: {
+      status: "DONE",
+      completedAt: new Date(),
+      ...(result != null ? { result: JSON.stringify(result) } : {}),
+    },
   });
 }
 
@@ -121,7 +132,7 @@ export async function getJobCountByStatus(): Promise<Record<JobStatus, number>> 
   };
 
   return rows.reduce((acc, row) => {
-    acc[row.status] = row._count.status;
+    acc[row.status as JobStatus] = row._count.status;
     return acc;
   }, defaults);
 }

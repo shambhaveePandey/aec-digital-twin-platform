@@ -20,8 +20,6 @@ export async function createWorld(container: HTMLElement): Promise<WorldHandles>
   world.renderer = new OBCF.RendererWith2D(components, container);
   world.camera = new OBC.OrthoPerspectiveCamera(components);
 
-  await world.init();
-
   // Default lighting, background colour, and environment
   world.scene.setup();
 

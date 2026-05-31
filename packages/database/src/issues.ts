@@ -1,4 +1,5 @@
-import type { Issue, IssueComment, IssuePriority, IssueStatus, Prisma } from "@prisma/client";
+import type { Issue, IssueComment, Prisma } from "@prisma/client";
+import type { IssuePriority, IssueStatus } from "./enums";
 import { prisma } from "./client";
 
 // ─── Issues ───────────────────────────────────────────────────────────────────
@@ -74,7 +75,8 @@ export type UpdateIssueInput = Partial<
 const CLOSED_STATUSES: IssueStatus[] = ["CLOSED", "RESOLVED", "WONT_FIX"];
 
 export async function updateIssue(id: string, data: UpdateIssueInput): Promise<Issue> {
-  const shouldClose = data.status !== undefined && CLOSED_STATUSES.includes(data.status);
+  const shouldClose =
+    data.status !== undefined && (CLOSED_STATUSES as string[]).includes(data.status);
   return prisma.issue.update({
     where: { id },
     data: {
