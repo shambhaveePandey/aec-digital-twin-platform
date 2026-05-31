@@ -1,0 +1,475 @@
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  //directUrl = env("DIRECT_URL")
+}
+
+// ─── Auth (NextAuth.js Prisma Adapter) ───────────────────────────────────────
+// Required by @auth/prisma-adapter. Do not rename fields.
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts    Account[]
+  sessions    Session[]
+  memberships WorkspaceMember[]
+  auditEvents AuditEvent[]
+
+  @@map("users")
+}
+
+// ─── Workspace ────────────────────────────────────────────────────────────────
+// A workspace is the top-level multi-tenant boundary.
+// Each user can belong to many workspaces via WorkspaceMember.
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  logoUrl     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     WorkspaceMember[]
+  twins       DigitalTwin[]
+  auditEvents AuditEvent[]
+
+  @@map("workspaces")
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(MEMBER)
+  invitedAt   DateTime      @default(now())
+  acceptedAt  DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+// ─── Digital Twin ─────────────────────────────────────────────────────────────
+// A DigitalTwin belongs to exactly one Workspace and can hold many model versions.
+
+enum TwinStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model DigitalTwin {
+  id          String     @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  status      TwinStatus @default(DRAFT)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  modelVersions TwinModelVersion[]
+  files         TwinFile[]
+  sensors       Sensor[]
+  issues        Issue[]
+  viewpoints    Viewpoint[]
+  jobs          BackgroundJob[]
+  auditEvents   AuditEvent[]
+
+  @@index([workspaceId])
+  @@index([status])
+  @@map("digital_twins")
+}
+
+// ─── Model Versions ───────────────────────────────────────────────────────────
+// Each upload creates a new version. The worker converts IFC → Fragments once;
+// subsequent viewer loads read the .frag artifact directly from S3.
+
+enum ModelVersionStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+model TwinModelVersion {
+  id                String             @id @default(cuid())
+  twinId            String
+  version           Int
+  label             String?
+  status            ModelVersionStatus @default(PENDING)
+  // IFC source (set at upload time)
+  ifcFileKey        String?
+  ifcFileName       String?
+  ifcFileSizeBytes  BigInt?
+  // Fragments output (set after conversion)
+  fragFileKey       String?
+  fragFileSizeBytes BigInt?
+  // Stats populated by the worker
+  elementCount      Int?
+  ifcSchema         String?
+  boundingBox       Json?
+  processedAt       DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  twin          DigitalTwin            @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  propertyCache ElementPropertyCache[]
+  jobs          BackgroundJob[]
+
+  @@unique([twinId, version])
+  @@index([twinId])
+  @@index([status])
+  @@map("twin_model_versions")
+}
+
+// ─── Twin Files ───────────────────────────────────────────────────────────────
+// Generic file attachment record. The binary lives in S3; this row is metadata.
+
+enum TwinFileType {
+  IFC_SOURCE
+  FRAGMENT
+  PREVIEW_IMAGE
+  DOCUMENT
+  OTHER
+}
+
+model TwinFile {
+  id           String       @id @default(cuid())
+  twinId       String
+  fileType     TwinFileType
+  name         String
+  s3Key        String       @unique
+  sizeBytes    BigInt
+  mimeType     String?
+  checksum     String?
+  uploadedAt   DateTime     @default(now())
+  uploadedById String?
+
+  twin DigitalTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+
+  @@index([twinId])
+  @@index([fileType])
+  @@map("twin_files")
+}
+
+// ─── Element Property Cache ───────────────────────────────────────────────────
+// Extracted from the IFC by the worker and stored for fast viewer property queries.
+// propertySets: { "Pset_WallCommon": { "FireRating": "60", ... }, ... }
+
+model ElementPropertyCache {
+  id              String   @id @default(cuid())
+  modelVersionId  String
+  ifcGuid         String
+  expressId       Int
+  ifcClass        String
+  name            String?
+  propertySets    Json
+  classifications Json?
+  spatialPath     String?
+  createdAt       DateTime @default(now())
+
+  modelVersion TwinModelVersion @relation(fields: [modelVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([modelVersionId, ifcGuid])
+  @@index([modelVersionId])
+  @@index([modelVersionId, ifcClass])
+  @@index([ifcGuid])
+  @@map("element_property_cache")
+}
+
+// ─── Sensors ──────────────────────────────────────────────────────────────────
+// A Sensor optionally binds to an IFC element via ifcGuid or expressId.
+// Readings stream in from the sensor-bridge service via MQTT.
+
+enum SensorStatus {
+  ACTIVE
+  INACTIVE
+  STALE
+  ERROR
+}
+
+model Sensor {
+  id           String       @id @default(cuid())
+  twinId       String
+  name         String
+  description  String?
+  unit         String?
+  ifcGuid      String?
+  expressId    Int?
+  mqttTopic    String?
+  externalId   String?
+  thresholdMin Float?
+  thresholdMax Float?
+  status       SensorStatus @default(ACTIVE)
+  lastSeenAt   DateTime?
+  lastValue    Float?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  twin     DigitalTwin     @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  readings SensorReading[]
+
+  @@index([twinId])
+  @@index([mqttTopic])
+  @@index([ifcGuid])
+  @@map("sensors")
+}
+
+// High-write table — consider a retention policy or TimescaleDB hypertable in production.
+model SensorReading {
+  id        String   @id @default(cuid())
+  sensorId  String
+  value     Float
+  unit      String?
+  quality   Int?
+  timestamp DateTime @default(now())
+
+  sensor Sensor @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@index([sensorId, timestamp])
+  @@map("sensor_readings")
+}
+
+// ─── Issues (BCF-compatible) ──────────────────────────────────────────────────
+// Issues link to model elements via ifcGuid and to viewpoints for spatial context.
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  WONT_FIX
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Issue {
+  id           String        @id @default(cuid())
+  twinId       String
+  title        String
+  description  String?       @db.Text
+  status       IssueStatus   @default(OPEN)
+  priority     IssuePriority @default(MEDIUM)
+  assigneeId   String?
+  reportedById String?
+  ifcGuid      String?
+  expressId    Int?
+  bcfGuid      String?       @unique
+  dueDate      DateTime?
+  closedAt     DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  twin       DigitalTwin    @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  comments   IssueComment[]
+  viewpoints Viewpoint[]
+
+  @@index([twinId])
+  @@index([twinId, status])
+  @@index([assigneeId])
+  @@map("issues")
+}
+
+model IssueComment {
+  id        String   @id @default(cuid())
+  issueId   String
+  authorId  String?
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+  @@map("issue_comments")
+}
+
+// ─── Viewpoints ───────────────────────────────────────────────────────────────
+// Stores a camera snapshot plus hidden/selected element GUIDs for restoring context.
+// hiddenGuids / selectedGuids are string[] serialised to JSON.
+
+model Viewpoint {
+  id               String   @id @default(cuid())
+  twinId           String
+  issueId          String?
+  label            String?
+  cameraPosition   Json
+  cameraTarget     Json
+  cameraUp         Json
+  isOrthographic   Boolean  @default(false)
+  orthographicSize Float?
+  hiddenGuids      Json?
+  selectedGuids    Json?
+  bcfGuid          String?  @unique
+  snapshotKey      String?
+  createdAt        DateTime @default(now())
+
+  twin  DigitalTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  issue Issue?      @relation(fields: [issueId], references: [id], onDelete: SetNull)
+
+  @@index([twinId])
+  @@index([issueId])
+  @@map("viewpoints")
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  UPLOAD
+  CONVERT
+  SHARE
+  LOGIN
+  LOGOUT
+}
+
+model AuditEvent {
+  id          String      @id @default(cuid())
+  workspaceId String?
+  twinId      String?
+  userId      String?
+  action      AuditAction
+  resource    String
+  resourceId  String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  workspace Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  twin      DigitalTwin? @relation(fields: [twinId], references: [id], onDelete: SetNull)
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([twinId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_events")
+}
+
+// ─── Background Jobs ──────────────────────────────────────────────────────────
+// Lightweight fallback job table. Primary queue is BullMQ/Redis.
+// The ifc-worker polls this table when Redis is unavailable.
+
+enum JobType {
+  IFC_CONVERT
+  PROPERTY_EXTRACT
+  PREVIEW_GENERATE
+  FRAGMENT_UPLOAD
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+  CANCELLED
+}
+
+model BackgroundJob {
+  id             String    @id @default(cuid())
+  twinId         String?
+  modelVersionId String?
+  type           JobType
+  status         JobStatus @default(QUEUED)
+  priority       Int       @default(0)
+  payload        Json?
+  result         Json?
+  errorMessage   String?
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(3)
+  workerId       String?
+  scheduledAt    DateTime  @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  twin         DigitalTwin?      @relation(fields: [twinId], references: [id], onDelete: SetNull)
+  modelVersion TwinModelVersion? @relation(fields: [modelVersionId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([twinId])
+  @@index([type, status])
+  @@index([scheduledAt])
+  @@map("background_jobs")
+}

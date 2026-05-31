@@ -1,0 +1,53 @@
+name: BIM Import Issue
+description: Report a problem with IFC upload, parsing, or Fragments conversion.
+title: "ifc: "
+labels: ["ifc", "fragments"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for issues with IFC file upload, web-ifc parsing errors, or IFC → Fragments conversion failures.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What goes wrong and at which stage (upload / conversion / viewer load)?
+    validations:
+      required: true
+
+  - type: textarea
+    id: ifc_info
+    attributes:
+      label: IFC file details
+      description: Do not attach the actual file. Describe it instead.
+      placeholder: |
+        - IFC version: IFC2X3 / IFC4 / IFC4X3
+        - Authoring tool: Revit 2024 / ArchiCAD 27 / other
+        - Approximate size: 50 MB
+        - Element count: ~12 000
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Error output
+      description: Paste the error from the browser console or worker logs.
+      render: shell
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: The IFC file is valid (passes an IFC validator).

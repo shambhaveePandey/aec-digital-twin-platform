@@ -1,0 +1,42 @@
+{
+  "name": "aec-digital-twin-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source browser-based AEC digital twin platform built on IFC, Fragments, and That Open Company libraries.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shambhaveePandey/aec-digital-twin-platform"
+  },
+  "author": "Shambhavee Pandey",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:ci": "turbo run test -- --ci",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "turbo run db:migrate",
+    "db:studio": "cd packages/database && pnpm prisma studio",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "turbo run build --filter=!apps/* && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.1",
+    "@types/node": "^20.12.12",
+    "prettier": "^3.2.5",
+    "prettier-plugin-tailwindcss": "^0.6.1",
+    "turbo": "^2.0.3",
+    "typescript": "^5.4.5"
+  },
+  "packageManager": "pnpm@9.1.1"
+}
