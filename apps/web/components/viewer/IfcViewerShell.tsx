@@ -14,11 +14,12 @@ import { ModelTreePanel } from "./ModelTreePanel";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { ViewpointsPanel } from "./ViewpointsPanel";
 import { SectionCutsPanel } from "./SectionCutsPanel";
+import { DigitalTwinPanel } from "./DigitalTwinPanel";
 import { useViewerWorld } from "./hooks/useViewerWorld";
 import { useFragmentLoader, phaseLabel } from "./hooks/useFragmentLoader";
 import { useModelSelection } from "./hooks/useModelSelection";
 
-type RightTab = "properties" | "viewpoints";
+type RightTab = "properties" | "viewpoints" | "digital twin";
 
 type Props = {
   /** Raw IFC bytes to parse and render, or null when nothing is selected yet. */
@@ -116,10 +117,10 @@ export function IfcViewerShell({ ifcBuffer, modelKey, modelName }: Props) {
       </div>
 
       {/* ── Right sidebar: tabbed panels ── */}
-      <aside className="flex w-72 flex-shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
+      <aside className="flex w-80 flex-shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
         {/* Tab strip */}
         <div className="flex flex-shrink-0 border-b border-neutral-800">
-          {(["properties", "viewpoints"] as RightTab[]).map((tab) => (
+          {(["properties", "viewpoints", "digital twin"] as RightTab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setRightTab(tab)}
@@ -145,6 +146,13 @@ export function IfcViewerShell({ ifcBuffer, modelKey, modelName }: Props) {
           )}
           {rightTab === "viewpoints" && (
             <ViewpointsPanel components={components} camera={camera} />
+          )}
+          {rightTab === "digital twin" && (
+            <DigitalTwinPanel
+              components={components}
+              world={world}
+              model={models[0] ?? null}
+            />
           )}
         </div>
       </aside>

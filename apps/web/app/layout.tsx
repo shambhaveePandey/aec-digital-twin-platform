@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
+import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 
 // The home page is a client-only dynamic import (the 3D viewer, ssr: false),
