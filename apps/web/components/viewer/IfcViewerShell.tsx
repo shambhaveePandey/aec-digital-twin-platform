@@ -1,28 +1,35 @@
 "use client";
 
+// Fully client-side viewer shell. There is no backend: IFC files are parsed
+// in the browser and all panels read from the loaded model in memory.
+// Properties read live from the model; Viewpoints are kept in local React state
+// for the session. The former Issues and Sensors tabs depended on a server and
+// have been removed.
+
 import { useEffect, useRef, useState } from "react";
 import { ViewerCanvas } from "./ViewerCanvas";
 import { ViewerToolbar } from "./ViewerToolbar";
 import { ViewerStatusBar } from "./ViewerStatusBar";
 import { ModelTreePanel } from "./ModelTreePanel";
 import { PropertiesPanel } from "./PropertiesPanel";
-import { IssuesPanel } from "./IssuesPanel";
-import { SensorOverlayPanel } from "./SensorOverlayPanel";
-import { SectionCutsPanel } from "./SectionCutsPanel";
 import { ViewpointsPanel } from "./ViewpointsPanel";
+import { SectionCutsPanel } from "./SectionCutsPanel";
 import { useViewerWorld } from "./hooks/useViewerWorld";
 import { useFragmentLoader } from "./hooks/useFragmentLoader";
 import { useModelSelection } from "./hooks/useModelSelection";
 
-type RightTab = "properties" | "issues" | "sensors" | "viewpoints";
+type RightTab = "properties" | "viewpoints";
 
 type Props = {
-  twinId: string;
-  modelVersionId: string;
-  fragUrl: string;
+  /** Raw IFC bytes to parse and render, or null when nothing is selected yet. */
+  ifcBuffer: ArrayBuffer | null;
+  /** Stable identifier for the current model (used as the load key). */
+  modelKey: string;
+  /** Human-readable name shown in the status bar. */
+  modelName: string;
 };
 
-export function IfcViewerShell({ twinId, modelVersionId, fragUrl }: Props) {
+export function IfcViewerShell({ ifcBuffer, modelKey, modelName }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { handlesRef, isReady, error: worldError } = useViewerWorld(containerRef);
 
@@ -30,7 +37,7 @@ export function IfcViewerShell({ twinId, modelVersionId, fragUrl }: Props) {
   const world = isReady ? (handlesRef.current?.world ?? null) : null;
   const camera = isReady ? (handlesRef.current?.camera ?? null) : null;
 
-  const { models, isLoading, loadError, loadModel } = useFragmentLoader(
+  const { models, isLoading, loadError, loadIfc } = useFragmentLoader(
     components,
     world,
   );
@@ -43,12 +50,12 @@ export function IfcViewerShell({ twinId, modelVersionId, fragUrl }: Props) {
   const [leftOpen, setLeftOpen] = useState(true);
   const [sectionCutsOpen, setSectionCutsOpen] = useState(false);
 
-  // Load the fragment model once the engine is ready
+  // Parse + load the IFC buffer in the browser whenever it changes.
   useEffect(() => {
-    if (isReady && fragUrl) {
-      loadModel(modelVersionId, fragUrl);
+    if (isReady && ifcBuffer) {
+      loadIfc(modelKey, ifcBuffer);
     }
-  }, [isReady, fragUrl, modelVersionId, loadModel]);
+  }, [isReady, ifcBuffer, modelKey, loadIfc]);
 
   const error = worldError ?? loadError;
 
@@ -86,12 +93,20 @@ export function IfcViewerShell({ twinId, modelVersionId, fragUrl }: Props) {
               <SectionCutsPanel components={components} world={world} />
             </div>
           )}
+
+          {!ifcBuffer && isReady && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <p className="text-sm text-neutral-500">
+                Choose a sample or upload an .ifc file to begin
+              </p>
+            </div>
+          )}
         </div>
 
         <ViewerStatusBar
           selectedElement={selectedElement}
           isLoading={isLoading}
-          modelVersionId={modelVersionId}
+          modelName={modelName}
         />
       </div>
 
@@ -99,40 +114,32 @@ export function IfcViewerShell({ twinId, modelVersionId, fragUrl }: Props) {
       <aside className="flex w-72 flex-shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
         {/* Tab strip */}
         <div className="flex flex-shrink-0 border-b border-neutral-800">
-          {(["properties", "issues", "sensors", "viewpoints"] as RightTab[]).map(
-            (tab) => (
-              <button
-                key={tab}
-                onClick={() => setRightTab(tab)}
-                className={`flex-1 py-2 text-xs font-medium capitalize transition-colors ${
-                  rightTab === tab
-                    ? "border-b-2 border-blue-500 text-white"
-                    : "text-neutral-500 hover:text-neutral-300"
-                }`}
-              >
-                {tab}
-              </button>
-            ),
-          )}
+          {(["properties", "viewpoints"] as RightTab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setRightTab(tab)}
+              className={`flex-1 py-2 text-xs font-medium capitalize transition-colors ${
+                rightTab === tab
+                  ? "border-b-2 border-blue-500 text-white"
+                  : "text-neutral-500 hover:text-neutral-300"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
 
         {/* Panel body */}
         <div className="flex-1 overflow-hidden">
           {rightTab === "properties" && (
-            <PropertiesPanel twinId={twinId} selectedElement={selectedElement} />
-          )}
-          {rightTab === "issues" && (
-            <IssuesPanel twinId={twinId} selectedElement={selectedElement} />
-          )}
-          {rightTab === "sensors" && (
-            <SensorOverlayPanel twinId={twinId} selectedElement={selectedElement} />
+            <PropertiesPanel
+              components={components}
+              models={models}
+              selectedElement={selectedElement}
+            />
           )}
           {rightTab === "viewpoints" && (
-            <ViewpointsPanel
-              twinId={twinId}
-              components={components}
-              camera={camera}
-            />
+            <ViewpointsPanel components={components} camera={camera} />
           )}
         </div>
       </aside>

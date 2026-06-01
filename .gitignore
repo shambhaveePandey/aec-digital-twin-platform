@@ -51,11 +51,13 @@ coverage/
 *.pem
 .cache/
 
-# IFC / BIM artifacts (large binaries – store in S3, not git)
+# IFC / BIM artifacts (large binaries) — ignored by default...
 *.ifc
 *.ifczip
 *.frag
 *.ifc.xz
+# ...but the bundled client-side demo samples ARE tracked.
+!apps/web/public/sample-ifc/*.ifc
 
 # Docker
 infra/docker/.env

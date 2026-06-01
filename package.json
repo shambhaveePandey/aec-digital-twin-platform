@@ -23,9 +23,6 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
     "clean": "turbo run clean && rm -rf node_modules",
-    "db:generate": "turbo run db:generate",
-    "db:migrate": "turbo run db:migrate",
-    "db:studio": "cd packages/database && pnpm prisma studio",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "turbo run build --filter=!apps/* && changeset publish"

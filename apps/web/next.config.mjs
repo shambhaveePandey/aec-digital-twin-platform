@@ -1,8 +1,6 @@
 // apps/web/next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@aec-twin/database"],
-
   experimental: {
     serverComponentsExternalPackages: [
       "@thatopen/components",

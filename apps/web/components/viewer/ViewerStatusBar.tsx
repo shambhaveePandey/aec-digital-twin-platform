@@ -5,16 +5,17 @@ import type { SelectionState } from "@/lib/thatopen/types";
 type Props = {
   selectedElement: SelectionState;
   isLoading: boolean;
-  modelVersionId?: string;
+  modelName?: string;
 };
 
-export function ViewerStatusBar({ selectedElement, isLoading, modelVersionId }: Props) {
+export function ViewerStatusBar({ selectedElement, isLoading, modelName }: Props) {
   return (
     <div className="flex h-7 flex-shrink-0 items-center justify-between border-t border-neutral-800 bg-neutral-900 px-3 text-xs text-neutral-500">
       <div className="flex items-center gap-4">
         {selectedElement ? (
           <span>
-            Selected: expressId <span className="text-neutral-300">{selectedElement.expressId}</span>
+            Selected: expressId{" "}
+            <span className="text-neutral-300">{selectedElement.expressId}</span>
           </span>
         ) : (
           <span>No selection</span>
@@ -28,9 +29,9 @@ export function ViewerStatusBar({ selectedElement, isLoading, modelVersionId }: 
             Loading…
           </span>
         )}
-        {modelVersionId && (
+        {modelName && (
           <span>
-            Version <span className="text-neutral-400">{modelVersionId.slice(-8)}</span>
+            Model <span className="text-neutral-400">{modelName}</span>
           </span>
         )}
       </div>

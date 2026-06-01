@@ -1,44 +1,102 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type * as OBC from "@thatopen/components";
+import type { FragmentsGroup } from "@thatopen/fragments";
 import type { SelectionState } from "@/lib/thatopen/types";
 
 type Props = {
-  twinId: string;
+  components: OBC.Components | null;
+  models: FragmentsGroup[];
   selectedElement: SelectionState;
 };
 
-type PropertySet = Record<string, unknown>;
-type PropertiesResponse = {
-  ifcGuid: string;
-  ifcClass: string;
+type FlatProps = {
   name: string | null;
-  spatialPath: string | null;
-  propertySets: Record<string, PropertySet>;
+  ifcClass: string | null;
+  attributes: Record<string, string>;
 };
 
-export function PropertiesPanel({ twinId, selectedElement }: Props) {
-  const [data, setData] = useState<PropertiesResponse | null>(null);
+/** Reads a string-ish value out of a web-ifc property entry. */
+function readValue(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "object" && v !== null && "value" in (v as object)) {
+    const inner = (v as { value: unknown }).value;
+    return inner === null || inner === undefined ? null : String(inner);
+  }
+  if (typeof v === "object") return null;
+  return String(v);
+}
+
+export function PropertiesPanel({ components, models, selectedElement }: Props) {
+  const [data, setData] = useState<FlatProps | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!selectedElement?.ifcGuid) {
+    if (!components || !selectedElement || models.length === 0) {
       setData(null);
       return;
     }
+
     let cancelled = false;
     setLoading(true);
-    setError(null);
 
-    fetch(`/api/twins/${twinId}/properties?ifcGuid=${encodeURIComponent(selectedElement.ifcGuid)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
-      .then((d) => { if (!cancelled) setData(d as PropertiesResponse); })
-      .catch((e) => { if (!cancelled) setError(String(e)); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    (async () => {
+      try {
+        // Find the model the selection belongs to, falling back to the first.
+        const model =
+          models.find((m) => (m as { uuid?: string }).uuid === selectedElement.modelUuid) ??
+          models[0];
 
-    return () => { cancelled = true; };
-  }, [twinId, selectedElement?.ifcGuid]);
+        // FragmentsGroup exposes getProperties(expressID) in @thatopen/fragments v2.
+        const getProps = (model as unknown as {
+          getProperties?: (id: number) => Promise<Record<string, unknown>> | Record<string, unknown>;
+        }).getProperties;
+
+        let raw: Record<string, unknown> | null = null;
+        if (typeof getProps === "function") {
+          raw = (await getProps.call(model, selectedElement.expressId)) ?? null;
+        }
+
+        if (cancelled) return;
+
+        if (!raw) {
+          setData({
+            name: null,
+            ifcClass: null,
+            attributes: { expressId: String(selectedElement.expressId) },
+          });
+          return;
+        }
+
+        const attributes: Record<string, string> = {};
+        for (const [key, value] of Object.entries(raw)) {
+          const str = readValue(value);
+          if (str !== null) attributes[key] = str;
+        }
+
+        setData({
+          name: readValue(raw.Name) ?? null,
+          ifcClass: (raw.type ? String(raw.type) : null) ?? null,
+          attributes,
+        });
+      } catch {
+        if (!cancelled) {
+          setData({
+            name: null,
+            ifcClass: null,
+            attributes: { expressId: String(selectedElement.expressId) },
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [components, models, selectedElement]);
 
   if (!selectedElement) {
     return (
@@ -56,37 +114,25 @@ export function PropertiesPanel({ twinId, selectedElement }: Props) {
     );
   }
 
-  if (error || !data) {
-    return (
-      <div className="p-3 text-xs text-neutral-500">
-        {error ?? "No properties found"}
-      </div>
-    );
+  if (!data) {
+    return <div className="p-3 text-xs text-neutral-500">No properties found</div>;
   }
 
   return (
     <div className="viewer-panel overflow-y-auto p-3 text-xs">
       <div className="mb-3 space-y-1 border-b border-neutral-800 pb-3">
-        <p className="font-semibold text-white">{data.name ?? "Unnamed"}</p>
-        <p className="text-neutral-400">{data.ifcClass}</p>
-        {data.spatialPath && (
-          <p className="text-neutral-500">{data.spatialPath}</p>
-        )}
+        <p className="font-semibold text-white">{data.name ?? "Unnamed element"}</p>
+        {data.ifcClass && <p className="text-neutral-400">{data.ifcClass}</p>}
       </div>
 
-      {Object.entries(data.propertySets).map(([psetName, props]) => (
-        <div key={psetName} className="mb-3">
-          <p className="mb-1 font-medium text-neutral-300">{psetName}</p>
-          <div className="space-y-0.5 rounded bg-neutral-800/50 p-2">
-            {Object.entries(props).map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-2">
-                <span className="truncate text-neutral-400">{k}</span>
-                <span className="shrink-0 text-neutral-200">{String(v)}</span>
-              </div>
-            ))}
+      <div className="space-y-0.5 rounded bg-neutral-800/50 p-2">
+        {Object.entries(data.attributes).map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-2">
+            <span className="truncate text-neutral-400">{k}</span>
+            <span className="shrink-0 text-neutral-200">{v}</span>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

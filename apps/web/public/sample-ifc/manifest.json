@@ -1,0 +1,51 @@
+[
+  {
+    "id": "sample-house",
+    "name": "Sample House (IFC4)",
+    "file": "/sample-ifc/Ifc4_SampleHouse.ifc",
+    "schema": "IFC4",
+    "description": "Complete small residential house — good default demo model."
+  },
+  {
+    "id": "sample-house-ground",
+    "name": "Sample House — Ground Floor",
+    "file": "/sample-ifc/Ifc4_SampleHouse_0_GroundFloor.ifc",
+    "schema": "IFC4",
+    "description": "Ground-floor-only federation of the sample house."
+  },
+  {
+    "id": "sample-house-roof",
+    "name": "Sample House — Roof",
+    "file": "/sample-ifc/Ifc4_SampleHouse_1_Roof.ifc",
+    "schema": "IFC4",
+    "description": "Roof-only model — pairs with the ground floor for federation tests."
+  },
+  {
+    "id": "duplex-architecture",
+    "name": "Duplex — Architecture (IFC2x3)",
+    "file": "/sample-ifc/Ifc2x3_Duplex_Architecture.ifc",
+    "schema": "IFC2X3",
+    "description": "Classic Duplex architectural model. Tests IFC2x3 support."
+  },
+  {
+    "id": "wall-elemented-case",
+    "name": "Wall Elemented Case",
+    "file": "/sample-ifc/Ifc4_WallElementedCase.ifc",
+    "schema": "IFC4",
+    "description": "Tiny wall assembly — instant load, ideal for smoke tests."
+  },
+  {
+    "id": "basin",
+    "name": "Basin (Faceted Brep)",
+    "file": "/sample-ifc/Ifc4_BasinFacetedBrep.ifc",
+    "schema": "IFC4",
+    "description": "Single furnishing element with faceted Brep geometry."
+  },
+  {
+    "id": "cube",
+    "name": "Cube (Advanced Brep)",
+    "file": "/sample-ifc/Ifc4_CubeAdvancedBrep.ifc",
+    "schema": "IFC4",
+    "description": "Minimal advanced-Brep cube — fastest possible load."
+  }
+]

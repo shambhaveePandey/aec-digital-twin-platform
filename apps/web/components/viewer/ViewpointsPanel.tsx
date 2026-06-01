@@ -1,57 +1,46 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import type * as OBC from "@thatopen/components";
+import type { CameraState } from "@/lib/thatopen/types";
 
 type Viewpoint = {
   id: string;
-  label: string | null;
-  snapshotKey: string | null;
-  createdAt: string;
-  cameraPosition: { x: number; y: number; z: number };
-  cameraTarget: { x: number; y: number; z: number };
-  cameraUp: { x: number; y: number; z: number };
-  isOrthographic: boolean;
+  label: string;
+  createdAt: number;
+  state: CameraState;
 };
 
 type Props = {
-  twinId: string;
   components: OBC.Components | null;
   camera: OBC.OrthoPerspectiveCamera | null;
 };
 
-export function ViewpointsPanel({ twinId, components, camera }: Props) {
+/**
+ * Session-local saved viewpoints. There is no backend in this client-side app,
+ * so viewpoints live in React state for the lifetime of the page.
+ */
+export function ViewpointsPanel({ camera }: Props) {
   const [viewpoints, setViewpoints] = useState<Viewpoint[]>([]);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch(`/api/twins/${twinId}/viewpoints`)
-      .then((r) => r.json())
-      .then((d) => setViewpoints((d as { viewpoints: Viewpoint[] }).viewpoints ?? []))
-      .catch(() => {});
-  }, [twinId]);
 
   async function handleSave() {
     if (!camera) return;
     setSaving(true);
-    const { captureViewpoint } = await import("@/lib/thatopen/viewpoints");
-    const state = captureViewpoint(camera);
-
     try {
-      const res = await fetch(`/api/twins/${twinId}/viewpoints`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cameraPosition: state.position,
-          cameraTarget: state.target,
-          cameraUp: state.up,
-          isOrthographic: state.isOrthographic,
-        }),
-      });
-      if (!res.ok) throw new Error("Save failed");
-      const saved = await res.json() as Viewpoint;
-      setViewpoints((prev) => [saved, ...prev]);
+      const { captureViewpoint } = await import("@/lib/thatopen/viewpoints");
+      const state = captureViewpoint(camera);
+      const vp: Viewpoint = {
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : String(Date.now()),
+        label: `Viewpoint ${viewpoints.length + 1}`,
+        createdAt: Date.now(),
+        state,
+      };
+      setViewpoints((prev) => [vp, ...prev]);
       toast.success("Viewpoint saved");
     } catch {
       toast.error("Failed to save viewpoint");
@@ -63,12 +52,11 @@ export function ViewpointsPanel({ twinId, components, camera }: Props) {
   async function handleRestore(vp: Viewpoint) {
     if (!camera) return;
     const { restoreViewpoint } = await import("@/lib/thatopen/viewpoints");
-    await restoreViewpoint(camera, {
-      position: vp.cameraPosition,
-      target: vp.cameraTarget,
-      up: vp.cameraUp,
-      isOrthographic: vp.isOrthographic,
-    });
+    await restoreViewpoint(camera, vp.state);
+  }
+
+  function handleDelete(id: string) {
+    setViewpoints((prev) => prev.filter((v) => v.id !== id));
   }
 
   return (
@@ -87,20 +75,33 @@ export function ViewpointsPanel({ twinId, components, camera }: Props) {
       </div>
 
       {viewpoints.length === 0 ? (
-        <p className="p-4 text-center text-xs text-neutral-600">No saved viewpoints</p>
+        <p className="p-4 text-center text-xs text-neutral-600">
+          No saved viewpoints
+        </p>
       ) : (
         <div className="divide-y divide-neutral-800">
           {viewpoints.map((vp) => (
-            <button
+            <div
               key={vp.id}
-              onClick={() => handleRestore(vp)}
-              className="w-full px-3 py-2 text-left hover:bg-neutral-800 transition-colors"
+              className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-neutral-800 transition-colors"
             >
-              <p className="text-xs text-neutral-300">{vp.label ?? "Viewpoint"}</p>
-              <p className="mt-0.5 text-xs text-neutral-600">
-                {new Date(vp.createdAt).toLocaleString()}
-              </p>
-            </button>
+              <button
+                onClick={() => handleRestore(vp)}
+                className="min-w-0 flex-1 text-left"
+              >
+                <p className="truncate text-xs text-neutral-300">{vp.label}</p>
+                <p className="mt-0.5 text-xs text-neutral-600">
+                  {new Date(vp.createdAt).toLocaleTimeString()}
+                </p>
+              </button>
+              <button
+                onClick={() => handleDelete(vp.id)}
+                title="Delete viewpoint"
+                className="shrink-0 rounded px-1.5 text-xs text-neutral-600 hover:text-red-400"
+              >
+                ✕
+              </button>
+            </div>
           ))}
         </div>
       )}
