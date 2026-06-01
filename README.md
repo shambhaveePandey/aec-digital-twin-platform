@@ -9,6 +9,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
+**Live app:** https://shambhaveepandey.github.io/aec-digital-twin-platform/
+
+## Documentation
+
+- 📖 [User Guide](https://www.notion.so/372ff97a75418179b4a6e9c658d3cb6e) — end-to-end guide to loading models, navigating the 3D viewer, and using the Digital Twin (GIS + IoT).
+- 🛠️ [API & Developer Documentation](https://www.notion.so/372ff97a75418126b758ccdfd8c1e6b3) — architecture, modules, the `IotSource` contract, the MQTT topic/payload convention, and build/deploy.
+
 ---
 
 ## Features
@@ -21,6 +28,13 @@
 - **Section Cuts & Clipping Planes** — interactive clipping powered by the engine's `Clipper`.
 - **Model Tree** — spatial-structure and entity classification of the loaded model.
 - **Saved Viewpoints** — capture and restore camera states for the current session.
+- **Digital Twin (GIS + IoT)** — place the model on an interactive world map (MapLibre GL,
+  token-free OpenStreetMap tiles) using its `IfcSite` coordinates, and stream live sensor
+  telemetry onto its elements. Includes an offline **Demo Simulator** (samples real element
+  GlobalIds) and a real-time **MQTT-over-WebSocket** source. Reporting elements highlight
+  **blue**; threshold breaches highlight **red**.
+- **Determinate Load Progress** — an accessible progress bar reports real load phases
+  (reading → parsing → framing → done) instead of a generic spinner.
 - **Open Standards First** — IFC 2×3 and IFC 4 support via `web-ifc`.
 - **Zero infrastructure** — static Next.js app; deploy anywhere that serves static assets.
 
@@ -56,7 +70,9 @@ files and the `web-ifc` WASM binaries are served as static assets from `public/`
 |---|---|
 | Frontend | Next.js 14 (App Router) + TypeScript, fully client-rendered viewer |
 | BIM Engine | `@thatopen/components`, `@thatopen/components-front`, `@thatopen/fragments`, `web-ifc` |
-| 3D Rendering | Three.js |
+| 3D Rendering | Three.js + `camera-controls` |
+| GIS / Map | `maplibre-gl` (token-free OpenStreetMap raster tiles) |
+| IoT | `mqtt` (mqtt.js over WebSocket) |
 | UI | Tailwind CSS + Radix UI primitives |
 | Monorepo | pnpm workspaces + Turborepo |
 
@@ -75,12 +91,17 @@ aec-digital-twin-platform/
 │       │   ├── IfcViewerShell.tsx       # Viewer layout + panels
 │       │   ├── PropertiesPanel.tsx      # Reads element props from the in-memory model
 │       │   ├── ViewpointsPanel.tsx      # Session-local saved viewpoints
+│       │   ├── DigitalTwinPanel.tsx      # MapLibre map + IoT controls + live readings
 │       │   ├── ModelTreePanel.tsx / SectionCutsPanel.tsx / Viewer*.tsx
-│       │   └── hooks/                   # useViewerWorld, useFragmentLoader, useModelSelection
+│       │   └── hooks/                   # useViewerWorld, useFragmentLoader, useModelSelection, useDigitalTwin
 │       ├── lib/thatopen/
 │       │   ├── load-ifc-client-preview.ts  # loadIfcInBrowser() — primary load path
 │       │   ├── create-world.ts / init-fragments.ts / classification.ts / clipping.ts
 │       │   └── selection.ts / measurements.ts / viewpoints.ts / types.ts
+│       ├── lib/twin/                        # Digital Twin layer
+│       │   ├── geo.ts                       # read IfcSite lat/lon (DMS → decimal)
+│       │   ├── iot.ts                       # IotSource interface + Simulator + MQTT
+│       │   └── highlight-by-guid.ts         # GUID → fragment highlight bridge
 │       ├── public/
 │       │   ├── sample-ifc/              # Bundled demo IFC files + manifest.json
 │       │   └── wasm/                    # web-ifc.wasm binaries (served at /wasm/*)
@@ -96,7 +117,7 @@ aec-digital-twin-platform/
 
 ### Prerequisites
 
-- Node.js ≥ 20
+- Node.js ≥ 20 (CI/CD builds on Node 24)
 - pnpm ≥ 9 (`npm install -g pnpm`)
 
 No Docker, database, or other services are required.
@@ -145,9 +166,20 @@ To add more, drop the `.ifc` into `apps/web/public/sample-ifc/` and add an entry
 
 ## Deployment
 
-The app is a static-friendly Next.js project. Deploy `apps/web` to Vercel (zero config) or
-any static/Node host. There are no environment variables required for the viewer to work
+The app is exported as a fully static Next.js site and deployed to **GitHub Pages** via the
+`.github/workflows/deploy-pages.yml` workflow (running on Node 24 runtimes). The static
+export can also be served from Vercel or any static/Node host.
+
+```bash
+cd apps/web
+BASE_PATH="/aec-digital-twin-platform" pnpm build   # static export → apps/web/out
+```
+
+There are no environment variables required for the viewer to work
 (`NEXT_PUBLIC_WASM_PATH` defaults to `/wasm`).
+
+> **Note:** GitHub Pages cannot send COOP/COEP headers, so `SharedArrayBuffer` is
+> unavailable and `web-ifc` runs single-threaded in the browser.
 
 ---
 
