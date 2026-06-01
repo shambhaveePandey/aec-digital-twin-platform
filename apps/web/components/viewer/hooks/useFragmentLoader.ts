@@ -79,6 +79,20 @@ export function useFragmentLoader(
 
   // Expose a stable array reference derived from the map
   const models = Array.from(modelsRef.current.values());
+  // A stable string key that only changes when the *set* of loaded models
+  // changes. Effects that rebuild expensive derived state (e.g. the model
+  // tree, which re-runs relation indexing + classification) should depend on
+  // this instead of the `models` array, whose reference changes every render.
+  const modelKeys = Array.from(modelsRef.current.keys()).join("|");
 
-  return { models, modelsRef, isLoading, loadError, loadIfc, clear, modelCount };
+  return {
+    models,
+    modelKeys,
+    modelsRef,
+    isLoading,
+    loadError,
+    loadIfc,
+    clear,
+    modelCount,
+  };
 }

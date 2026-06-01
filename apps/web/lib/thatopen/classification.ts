@@ -33,6 +33,13 @@ export async function getModelTree(
 ): Promise<ClassificationNode[]> {
   const classifier = components.get(OBC.Classifier);
 
+  // Ensure relations are indexed (deferred from load time for faster first
+  // paint). Idempotent: runs at most once per model.
+  const { ensureRelationsIndexed } = await import(
+    "./load-ifc-client-preview"
+  );
+  await ensureRelationsIndexed(components, model);
+
   await classifyByStorey(components, model);
   try {
     await classifyByEntity(components, model);

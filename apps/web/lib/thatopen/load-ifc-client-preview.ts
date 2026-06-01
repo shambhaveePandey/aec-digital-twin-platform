@@ -64,18 +64,35 @@ export async function loadIfcInBrowser(
   const model = await ifcLoader.load(new Uint8Array(ifcArrayBuffer));
   world.scene.three.add(model);
 
-  // Index the model's IFC relations so downstream components (e.g. the
-  // Classifier's bySpatialStructure) have the relation maps they require.
-  // Without this, classification throws "model relations ... have to exists
-  // to group by spatial structure". Failure here is non-fatal: the geometry
-  // still renders and entity-based classification still works.
+  // NOTE: relation indexing is intentionally NOT awaited here. Geometry is now
+  // on screen; indexing (needed only for the model tree) is the heaviest
+  // non-geometry step on large files, so we defer it to ensureRelationsIndexed
+  // which the tree panel calls in the background. This lets the building appear
+  // and become navigable seconds sooner.
+  return model;
+}
+
+// Tracks which model UUIDs have already had their relations indexed so the
+// (idempotent) call below isn't repeated on every tree rebuild.
+const indexedModels = new Set<string>();
+
+/**
+ * Indexes the model's IFC relations so the Classifier's bySpatialStructure has
+ * the relation maps it needs (otherwise it throws "model relations ... have to
+ * exists to group by spatial structure"). Safe to call multiple times; the work
+ * runs at most once per model. Failure is non-fatal — entity-based
+ * classification still works without relations.
+ */
+export async function ensureRelationsIndexed(
+  components: OBC.Components,
+  model: FragmentsGroup,
+): Promise<void> {
+  if (indexedModels.has(model.uuid)) return;
   try {
     const indexer = components.get(OBC.IfcRelationsIndexer);
     await indexer.process(model);
+    indexedModels.add(model.uuid);
   } catch {
-    // Some IFC files ship without the properties needed to index relations;
-    // swallow so the model still displays.
+    // Some IFC files ship without the properties needed to index relations.
   }
-
-  return model;
 }

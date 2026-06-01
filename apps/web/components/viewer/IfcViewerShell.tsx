@@ -37,7 +37,7 @@ export function IfcViewerShell({ ifcBuffer, modelKey, modelName }: Props) {
   const world = isReady ? (handlesRef.current?.world ?? null) : null;
   const camera = isReady ? (handlesRef.current?.camera ?? null) : null;
 
-  const { models, isLoading, loadError, loadIfc } = useFragmentLoader(
+  const { models, modelKeys, isLoading, loadError, loadIfc } = useFragmentLoader(
     components,
     world,
   );
@@ -64,7 +64,12 @@ export function IfcViewerShell({ ifcBuffer, modelKey, modelName }: Props) {
       {/* ── Left sidebar: model tree ── */}
       {leftOpen && (
         <aside className="w-60 flex-shrink-0 overflow-hidden border-r border-neutral-800 bg-neutral-900">
-          <ModelTreePanel components={components} world={world} models={models} />
+          <ModelTreePanel
+            components={components}
+            world={world}
+            models={models}
+            modelKeys={modelKeys}
+          />
         </aside>
       )}
 

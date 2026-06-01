@@ -9,6 +9,8 @@ type Props = {
   components: OBC.Components | null;
   world: OBC.World | null;
   models: FragmentsGroup[];
+  /** Stable key identifying the loaded model set; changes only on load/unload. */
+  modelKeys: string;
 };
 
 function TreeNode({ node, depth = 0 }: { node: ClassificationNode; depth?: number }) {
@@ -35,11 +37,18 @@ function TreeNode({ node, depth = 0 }: { node: ClassificationNode; depth?: numbe
   );
 }
 
-export function ModelTreePanel({ components, world, models }: Props) {
+export function ModelTreePanel({ components, world, models, modelKeys }: Props) {
   const [tree, setTree] = useState<ClassificationNode[]>([]);
 
+  // Rebuild the tree only when the *set* of loaded models changes (via the
+  // stable `modelKeys`), not on every parent re-render. Classification re-runs
+  // relation indexing, so depending on the `models` array (new reference each
+  // render) would needlessly repeat that expensive work and stutter the UI.
   useEffect(() => {
-    if (!components || models.length === 0) return;
+    if (!components || models.length === 0) {
+      setTree([]);
+      return;
+    }
 
     let cancelled = false;
     async function build() {
@@ -53,7 +62,8 @@ export function ModelTreePanel({ components, world, models }: Props) {
     }
     build();
     return () => { cancelled = true; };
-  }, [components, models]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [components, modelKeys]);
 
   return (
     <div className="viewer-panel h-full overflow-y-auto p-2">

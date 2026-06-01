@@ -3,7 +3,18 @@ import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+// The home page is a client-only dynamic import (the 3D viewer, ssr: false),
+// so the first text that actually uses this font paints after the heavy viewer
+// JS hydrates. Eagerly preloading the woff2 therefore triggers the browser
+// "preloaded but not used within a few seconds" warning without any benefit.
+// Disable preload and use `swap` so text renders immediately with a fallback
+// and upgrades to Inter once it loads.
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+  preload: false,
+});
 
 export const metadata: Metadata = {
   title: {
