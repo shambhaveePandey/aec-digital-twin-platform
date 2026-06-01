@@ -1,13 +1,15 @@
 import * as OBC from "@thatopen/components";
-import type { Fragment } from "@thatopen/fragments";
+import type { FragmentMesh } from "@thatopen/fragments";
 import type { SelectionState } from "./types";
 
 /**
  * Casts a ray from the current cursor position into the scene and returns
  * the hit element's IDs.  Returns null when nothing is hit.
  *
- * In @thatopen/fragments v2.x, expressId is resolved from the InstancedMesh
- * instanceId via Fragment.getItemID() rather than getVertexBlockID().
+ * In @thatopen/fragments v2.x the raycast hit's `object` is a `FragmentMesh`
+ * (a THREE.InstancedMesh subclass). The express ID is resolved from the hit
+ * `instanceId` via the *Fragment* attached to the mesh (`mesh.fragment`), not
+ * the mesh itself — `getItemID` lives on `Fragment`, not on `FragmentMesh`.
  */
 export function castRayAndSelect(
   components: OBC.Components,
@@ -23,8 +25,11 @@ export function castRayAndSelect(
 
   if (!result?.object) return null;
 
-  // Fragment extends THREE.InstancedMesh; instanceId identifies which instance was hit
-  const fragment = result.object as unknown as Fragment;
+  // The hit object is a FragmentMesh; its `.fragment` holds the instance→item map.
+  const mesh = result.object as unknown as FragmentMesh;
+  const fragment = mesh.fragment;
+  if (!fragment || typeof fragment.getItemID !== "function") return null;
+
   const instanceId = result.instanceId;
   if (instanceId === undefined || instanceId === null) return null;
 
@@ -33,7 +38,7 @@ export function castRayAndSelect(
 
   return {
     expressId,
-    ifcGuid: "", // resolved separately via API call to /properties?expressId=…
+    ifcGuid: "", // resolved separately from the model's in-memory properties
     fragmentId: fragment.id ?? "",
     modelUuid: fragment.group?.uuid ?? "",
   };

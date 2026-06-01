@@ -7,8 +7,16 @@ export async function classifyByStorey(
   model: FragmentsGroup,
 ): Promise<void> {
   const classifier = components.get(OBC.Classifier);
-  // v2.x uses bySpatialStructure instead of byStorey
-  await classifier.bySpatialStructure(model);
+  // v2.x uses bySpatialStructure instead of byStorey. This requires the
+  // model's IFC relations to be indexed first (see loadIfcInBrowser, which
+  // runs IfcRelationsIndexer.process). If relations are still unavailable
+  // (e.g. an IFC without spatial structure), don't let it break the tree —
+  // entity-based classification below still provides a useful grouping.
+  try {
+    await classifier.bySpatialStructure(model);
+  } catch {
+    // No spatial-structure grouping for this model; continue gracefully.
+  }
 }
 
 export async function classifyByEntity(
@@ -26,7 +34,11 @@ export async function getModelTree(
   const classifier = components.get(OBC.Classifier);
 
   await classifyByStorey(components, model);
-  await classifyByEntity(components, model);
+  try {
+    await classifyByEntity(components, model);
+  } catch {
+    // Entity classification is best-effort; ignore if it fails.
+  }
 
   // Build a ClassificationNode tree from classifier.list
   // list: Record<systemName, Record<value, FragmentIdMap>>
