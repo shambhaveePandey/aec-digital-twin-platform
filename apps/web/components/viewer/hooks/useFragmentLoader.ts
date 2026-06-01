@@ -1,8 +1,23 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type * as OBC from "@thatopen/components";
 import type { FragmentsGroup } from "@thatopen/fragments";
+
+/** Human-readable phases reported while a model loads. */
+export type LoadPhase = "idle" | "reading" | "parsing" | "framing" | "done";
+
+const PHASE_LABELS: Record<LoadPhase, string> = {
+  idle: "",
+  reading: "Reading file…",
+  parsing: "Parsing geometry…",
+  framing: "Framing model…",
+  done: "Ready",
+};
+
+export function phaseLabel(phase: LoadPhase): string {
+  return PHASE_LABELS[phase];
+}
 
 /**
  * Manages models loaded into the viewer. In this client-side app, models are
@@ -18,6 +33,37 @@ export function useFragmentLoader(
   const [loadError, setLoadError] = useState<Error | null>(null);
   // Incrementing counter so components re-render when models change
   const [modelCount, setModelCount] = useState(0);
+
+  // Load progress (0–100) and the current phase label. web-ifc parses the IFC
+  // in a single opaque WASM call with no incremental callback, so during the
+  // parse phase we ease a simulated value toward ~90% to give the user a sense
+  // of motion, then snap to 100% the moment geometry is on screen and framed.
+  const [progress, setProgress] = useState(0);
+  const [phase, setPhase] = useState<LoadPhase>("idle");
+  // Holds the rAF/timer id for the simulated-progress ramp so we can cancel it.
+  const rampRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopRamp = useCallback(() => {
+    if (rampRef.current !== null) {
+      clearInterval(rampRef.current);
+      rampRef.current = null;
+    }
+  }, []);
+
+  // Eases progress asymptotically toward `ceiling` so the bar keeps creeping
+  // forward during the opaque parse without ever falsely hitting 100%.
+  const startRamp = useCallback(
+    (ceiling: number) => {
+      stopRamp();
+      rampRef.current = setInterval(() => {
+        setProgress((p) => (p >= ceiling ? p : p + (ceiling - p) * 0.08));
+      }, 120);
+    },
+    [stopRamp],
+  );
+
+  // Clean up any running ramp if the component unmounts mid-load.
+  useEffect(() => stopRamp, [stopRamp]);
 
   /** Removes all loaded models from the scene and disposes their GPU resources. */
   const clear = useCallback(() => {
@@ -45,6 +91,8 @@ export function useFragmentLoader(
 
       setIsLoading(true);
       setLoadError(null);
+      setPhase("reading");
+      setProgress(8);
 
       try {
         // Clear existing models synchronously before loading the new one.
@@ -61,20 +109,38 @@ export function useFragmentLoader(
         const { loadIfcInBrowser } = await import(
           "@/lib/thatopen/load-ifc-client-preview"
         );
+
+        // Geometry parse is the long, opaque step — ramp toward 90%.
+        setPhase("parsing");
+        setProgress((p) => Math.max(p, 15));
+        startRamp(90);
+
         const model = await loadIfcInBrowser(components, world, buffer);
+        stopRamp();
         modelsRef.current.set(modelKey, model);
         setModelCount(modelsRef.current.size);
 
         // Frame the freshly loaded model.
+        setPhase("framing");
+        setProgress((p) => Math.max(p, 94));
         const { fitToScene } = await import("@/lib/thatopen/viewpoints");
         await fitToScene(components, world);
+
+        setPhase("done");
+        setProgress(100);
       } catch (err) {
         setLoadError(err instanceof Error ? err : new Error(String(err)));
       } finally {
+        stopRamp();
         setIsLoading(false);
+        // Reset the bar shortly after it completes so the next load starts clean.
+        setTimeout(() => {
+          setProgress(0);
+          setPhase("idle");
+        }, 600);
       }
     },
-    [components, world],
+    [components, world, startRamp, stopRamp],
   );
 
   // Expose a stable array reference derived from the map
@@ -94,5 +160,7 @@ export function useFragmentLoader(
     loadIfc,
     clear,
     modelCount,
+    progress,
+    phase,
   };
 }

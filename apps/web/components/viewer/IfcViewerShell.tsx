@@ -15,7 +15,7 @@ import { PropertiesPanel } from "./PropertiesPanel";
 import { ViewpointsPanel } from "./ViewpointsPanel";
 import { SectionCutsPanel } from "./SectionCutsPanel";
 import { useViewerWorld } from "./hooks/useViewerWorld";
-import { useFragmentLoader } from "./hooks/useFragmentLoader";
+import { useFragmentLoader, phaseLabel } from "./hooks/useFragmentLoader";
 import { useModelSelection } from "./hooks/useModelSelection";
 
 type RightTab = "properties" | "viewpoints";
@@ -37,10 +37,8 @@ export function IfcViewerShell({ ifcBuffer, modelKey, modelName }: Props) {
   const world = isReady ? (handlesRef.current?.world ?? null) : null;
   const camera = isReady ? (handlesRef.current?.camera ?? null) : null;
 
-  const { models, modelKeys, isLoading, loadError, loadIfc } = useFragmentLoader(
-    components,
-    world,
-  );
+  const { models, modelKeys, isLoading, loadError, loadIfc, progress, phase } =
+    useFragmentLoader(components, world);
   const { selectedElement, handleCanvasClick } = useModelSelection(
     components,
     world,
@@ -90,6 +88,8 @@ export function IfcViewerShell({ ifcBuffer, modelKey, modelName }: Props) {
             isReady={isReady}
             isLoading={isLoading}
             error={error}
+            progress={progress}
+            progressLabel={phaseLabel(phase)}
             onCanvasClick={() => handleCanvasClick(models)}
           />
 
