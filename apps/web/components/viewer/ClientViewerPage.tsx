@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { assetPath } from "@/lib/utils/asset-path";
 import { IfcViewerShell } from "./IfcViewerShell";
 
 type SampleEntry = {
@@ -28,7 +29,7 @@ export function ClientViewerPage() {
   const loadSample = useCallback(async (entry: SampleEntry) => {
     setBusy(true);
     try {
-      const res = await fetch(entry.file);
+      const res = await fetch(assetPath(entry.file));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const buffer = await res.arrayBuffer();
       setLoaded({ key: entry.id, name: entry.name, buffer });
@@ -44,7 +45,7 @@ export function ClientViewerPage() {
   // Load the sample manifest, then auto-open the first sample once.
   useEffect(() => {
     let cancelled = false;
-    fetch("/sample-ifc/manifest.json")
+    fetch(assetPath("/sample-ifc/manifest.json"))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
       .then((list: SampleEntry[]) => {
         if (cancelled) return;

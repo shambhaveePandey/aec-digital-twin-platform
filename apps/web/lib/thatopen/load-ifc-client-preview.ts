@@ -1,5 +1,6 @@
 import * as OBC from "@thatopen/components";
 import type { FragmentsGroup } from "@thatopen/fragments";
+import { assetPath } from "@/lib/utils/asset-path";
 
 /**
  * Loads a raw IFC file fully in the browser via IfcLoader.
@@ -19,7 +20,7 @@ export async function loadIfcInBrowser(
 ): Promise<FragmentsGroup> {
   const ifcLoader = components.get(OBC.IfcLoader);
 
-  const wasmBase = process.env.NEXT_PUBLIC_WASM_PATH ?? "/wasm";
+  const wasmBase = process.env.NEXT_PUBLIC_WASM_PATH ?? assetPath("/wasm");
   ifcLoader.settings.wasm = {
     path: `${wasmBase}/`,
     absolute: false,
