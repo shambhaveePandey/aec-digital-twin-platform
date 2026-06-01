@@ -26,10 +26,18 @@ export async function loadIfcInBrowser(
   const ifcLoader = components.get(OBC.IfcLoader);
 
   if (!didSetup) {
-    const wasmBase = process.env.NEXT_PUBLIC_WASM_PATH ?? assetPath("/wasm");
+    // web-ifc resolves a *relative* wasm path against the location of the
+    // worker/chunk script (…/_next/static/chunks/), which mangles a base-path
+    // string like "/aec-digital-twin-platform/wasm/". Build a fully-qualified,
+    // origin-absolute URL instead and mark it absolute so it is used verbatim.
+    const rawBase = process.env.NEXT_PUBLIC_WASM_PATH ?? assetPath("/wasm");
+    const wasmBase =
+      typeof window !== "undefined" && rawBase.startsWith("/")
+        ? `${window.location.origin}${rawBase}`
+        : rawBase;
     ifcLoader.settings.wasm = {
       path: `${wasmBase}/`,
-      absolute: false,
+      absolute: true,
     };
     // We provide the WASM path manually, so don't let setup() override it.
     ifcLoader.settings.autoSetWasm = false;
