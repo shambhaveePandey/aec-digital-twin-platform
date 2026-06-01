@@ -120,11 +120,13 @@ export function useFragmentLoader(
         modelsRef.current.set(modelKey, model);
         setModelCount(modelsRef.current.size);
 
-        // Frame the freshly loaded model.
+        // Frame the freshly loaded model. fitToScene is internally guarded by a
+        // timeout, so even if the camera animation misbehaves the load still
+        // completes and the model stays visible (never stuck at 94%).
         setPhase("framing");
         setProgress((p) => Math.max(p, 94));
         const { fitToScene } = await import("@/lib/thatopen/viewpoints");
-        await fitToScene(components, world);
+        await fitToScene(components, world, model);
 
         setPhase("done");
         setProgress(100);

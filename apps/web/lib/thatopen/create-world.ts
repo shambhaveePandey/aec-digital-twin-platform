@@ -27,6 +27,12 @@ export async function createWorld(container: HTMLElement): Promise<WorldHandles>
   const grids = components.get(OBC.Grids);
   grids.create(world);
 
+  // Start the components update/render loop. Without this the renderer never
+  // ticks continuously, so the camera-controls animation used by fitToSphere
+  // never advances (leaving the loader stuck in the "framing" phase) and the
+  // canvas stays black. This must run once the world is fully configured.
+  components.init();
+
   return {
     components,
     world,
