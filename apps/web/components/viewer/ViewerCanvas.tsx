@@ -12,7 +12,6 @@ type Props = {
   progress?: number;
   /** Human-readable phase label shown under the bar. */
   progressLabel?: string;
-  onCanvasClick?: () => void;
 };
 
 export function ViewerCanvas({
@@ -22,7 +21,6 @@ export function ViewerCanvas({
   error,
   progress = 0,
   progressLabel,
-  onCanvasClick,
 }: Props) {
   const pct = Math.max(0, Math.min(100, Math.round(progress)));
   return (
@@ -30,8 +28,7 @@ export function ViewerCanvas({
       {/* That Open mounts its canvas inside this div */}
       <div
         ref={containerRef}
-        className="h-full w-full"
-        onClick={onCanvasClick}
+        className="h-full w-full touch-none"
         aria-label="3D model viewer"
         role="application"
       />

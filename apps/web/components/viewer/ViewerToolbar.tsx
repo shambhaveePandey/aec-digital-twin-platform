@@ -9,8 +9,12 @@ type Props = {
   world: OBC.World | null;
   camera: OBC.OrthoPerspectiveCamera | null;
   models: FragmentsGroup[];
+  sectionCutsActive?: boolean;
+  hasSelection?: boolean;
   onToggleLeftPanel: () => void;
+  onToggleRightPanel?: () => void;
   onToggleSectionCuts: () => void;
+  onClearSelection?: () => void;
   onSaveViewpoint?: () => void;
 };
 
@@ -19,6 +23,8 @@ type ToolButton = {
   title: string;
   onClick: () => void;
   disabled?: boolean;
+  active?: boolean;
+  hideOnMobile?: boolean;
 };
 
 export function ViewerToolbar({
@@ -26,8 +32,12 @@ export function ViewerToolbar({
   world,
   camera,
   models,
+  sectionCutsActive,
+  hasSelection,
   onToggleLeftPanel,
+  onToggleRightPanel,
   onToggleSectionCuts,
+  onClearSelection,
   onSaveViewpoint,
 }: Props) {
   const disabled = !components || !world;
@@ -43,10 +53,6 @@ export function ViewerToolbar({
     camera.controls.reset(true);
   }
 
-  async function handleIsolateSelected() {
-    // Placeholder — requires selected element state; handled in IfcViewerShell
-  }
-
   async function handleMeasure() {
     if (!components || !world) return;
     const { enableLengthMeasurement } = await import(
@@ -56,13 +62,29 @@ export function ViewerToolbar({
   }
 
   const buttons: ToolButton[] = [
-    { label: "☰", title: "Toggle tree panel", onClick: onToggleLeftPanel },
+    { label: "☰", title: "Toggle model tree", onClick: onToggleLeftPanel },
     { label: "⊡", title: "Fit to scene", onClick: handleFitView, disabled },
     { label: "↺", title: "Reset camera", onClick: handleResetView, disabled },
-    { label: "✂", title: "Section cut", onClick: onToggleSectionCuts, disabled },
-    { label: "📏", title: "Measure", onClick: handleMeasure, disabled },
+    {
+      label: "✂",
+      title: "Section cuts",
+      onClick: onToggleSectionCuts,
+      disabled,
+      active: sectionCutsActive,
+    },
+    { label: "📏", title: "Measure", onClick: handleMeasure, disabled, hideOnMobile: true },
+    ...(onClearSelection
+      ? [
+          {
+            label: "✕",
+            title: "Clear selection",
+            onClick: onClearSelection,
+            disabled: !hasSelection,
+          },
+        ]
+      : []),
     ...(onSaveViewpoint
-      ? [{ label: "📸", title: "Save viewpoint", onClick: onSaveViewpoint, disabled }]
+      ? [{ label: "📸", title: "Save viewpoint", onClick: onSaveViewpoint, disabled, hideOnMobile: true }]
       : []),
   ];
 
@@ -76,14 +98,28 @@ export function ViewerToolbar({
           disabled={btn.disabled}
           className={cn(
             "flex h-7 w-7 items-center justify-center rounded text-sm transition-colors",
+            btn.hideOnMobile && "hidden sm:flex",
             btn.disabled
               ? "cursor-not-allowed text-neutral-700"
-              : "text-neutral-400 hover:bg-neutral-700 hover:text-white",
+              : btn.active
+                ? "bg-blue-600 text-white"
+                : "text-neutral-400 hover:bg-neutral-700 hover:text-white",
           )}
         >
           {btn.label}
         </button>
       ))}
+
+      {/* Right-panel toggle, shown on small screens where the panel is an overlay */}
+      {onToggleRightPanel && (
+        <button
+          title="Toggle properties panel"
+          onClick={onToggleRightPanel}
+          className="ml-auto flex h-7 w-7 items-center justify-center rounded text-sm text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-white lg:hidden"
+        >
+          ⊟
+        </button>
+      )}
     </div>
   );
 }

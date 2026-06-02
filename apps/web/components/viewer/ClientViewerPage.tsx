@@ -90,23 +90,26 @@ export function ClientViewerPage() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-950">
       {/* Top bar */}
-      <header className="flex h-12 flex-shrink-0 items-center justify-between border-b border-neutral-800 px-4">
-        <div className="flex items-center gap-3">
-          <span className="font-semibold tracking-tight text-white">
-            AEC IFC Viewer
+      <header className="flex h-12 flex-shrink-0 items-center justify-between gap-2 border-b border-neutral-800 px-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="truncate font-semibold tracking-tight text-white">
+            <span className="sm:hidden">AEC Viewer</span>
+            <span className="hidden sm:inline">AEC IFC Viewer</span>
           </span>
           {busy && (
-            <span className="text-xs text-yellow-500">Loading model…</span>
+            <span className="hidden text-xs text-yellow-500 sm:inline">
+              Loading model…
+            </span>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <label className="flex items-center gap-1.5 text-xs text-neutral-400">
-            Sample
+            <span className="hidden sm:inline">Sample</span>
             <select
               value={loaded?.key ?? ""}
               onChange={handleSampleChange}
-              className="rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-white focus:border-blue-500 focus:outline-none"
+              className="max-w-[40vw] rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-white focus:border-blue-500 focus:outline-none sm:max-w-none"
             >
               <option value="" disabled>
                 Choose a sample…
@@ -122,9 +125,10 @@ export function ClientViewerPage() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 transition-colors"
+            className="whitespace-nowrap rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-500"
           >
-            Upload .ifc
+            <span className="sm:hidden">Upload</span>
+            <span className="hidden sm:inline">Upload .ifc</span>
           </button>
           <input
             ref={fileInputRef}

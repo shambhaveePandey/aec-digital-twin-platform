@@ -18,6 +18,12 @@ export type SelectionState = {
 export type ClassificationNode = {
   name: string;
   id?: string;
+  /** Classification system this node belongs to (for selection lookup). */
+  system?: string;
+  /** Express ids of the elements grouped under this leaf node, if any. */
+  expressIds?: number[];
+  /** UUID of the model these express ids belong to. */
+  modelUuid?: string;
   children?: ClassificationNode[];
 };
 

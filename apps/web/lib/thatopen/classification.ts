@@ -47,13 +47,33 @@ export async function getModelTree(
     // Entity classification is best-effort; ignore if it fails.
   }
 
-  // Build a ClassificationNode tree from classifier.list
-  // list: Record<systemName, Record<value, FragmentIdMap>>
-  const list = classifier.list as Record<string, Record<string, unknown>>;
+  // Build a ClassificationNode tree from classifier.list.
+  // Shape: list[system][groupName] = { map: FragmentIdMap, name, id }
+  const list = classifier.list as Record<
+    string,
+    Record<string, { map?: Record<string, Set<number>>; name?: string }>
+  >;
+
+  const modelUuid = (model as { uuid?: string }).uuid ?? "";
 
   return Object.entries(list).map(([systemName, values]) => ({
     name: systemName,
-    children: Object.keys(values).map((value) => ({ name: value })),
+    system: systemName,
+    children: Object.entries(values).map(([value, entry]) => {
+      // Flatten the FragmentIdMap (fragmentId -> Set<expressId>) into a list
+      // of express ids so the tree can drive selection in the viewer.
+      const expressIds: number[] = [];
+      const map = entry?.map ?? {};
+      for (const ids of Object.values(map)) {
+        for (const id of ids as Set<number>) expressIds.push(id);
+      }
+      return {
+        name: value,
+        system: systemName,
+        expressIds,
+        modelUuid,
+      };
+    }),
   }));
 }
 
